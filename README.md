@@ -1,4 +1,4 @@
-# Martinican Creole POS Tagger Toolkit
+# Creole POS Tagger Toolkit
 
 A modular Python package and CLI for training, predicting, and analyzing transformer-based POS taggers on CoNLL‑U data. Includes three ready‑to‑use, fine‑tuned models for Martinican Creole:
 
