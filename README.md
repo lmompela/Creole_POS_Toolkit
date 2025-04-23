@@ -1,93 +1,76 @@
-# POS Tagger Toolkit
+# Martinican Creole POS Tagger Toolkit
 
-A modular, industry-standard Python package and CLI for training, predicting, and analyzing transformer-based POS tagging on CoNLL-U formatted data. Designed for low-resource languages (e.g., Creole) but extensible to any POS tagging task.
+A modular Python package and CLI for training, predicting, and analyzing transformer-based POS taggers on CoNLL‑U data. Includes three ready‑to‑use, fine‑tuned models for Martinican Creole:
 
-## Repository Structure
-
-```text
-pos_tagger/                 # Main Python package
-  ├── data_io.py            # CoNLL-U read/write utilities
-  ├── tokenization.py       # Subword-to-word alignment and tokenization helpers
-  ├── trainer.py            # Training routines for transformer models
-  ├── predictor.py          # Inference and simple evaluation routines
-  └── analysis/             # Error analysis subpackage
-      ├── error_analysis.py # All evaluation & diagnostic functions
-      └── README.md         # Details for error analysis
-
-scripts/                    # CLI entry-points
-  ├── train.py              # Train transformer tagger
-  ├── predict.py            # Predict and evaluate tags
-  └── analyze.py            # Comprehensive error analysis
-
-data/                       # (version-controlled) datasets
-  ├── legacy/               # Legacy corpora (.gitignored)
-  ├── flair/                # Flair-format data (.gitignored)
-  ├── udpipe/               # UDPipe-format data (.gitignored)
-  └── splits/               # train/dev/test splits
-
-models/                     # Trained model checkpoints (.gitignored)
-outputs/                    # Evaluation outputs (JSON, PNG, CSV)
-
-README.md                   # You are here
-requirements.txt            # Python dependencies
-setup.py                    # Package installation script (optional)
-.gitignore                  # Ignore logs, models, outputs, __pycache__, etc.
-```
+| Model Repository                                              | Base Model       | Accuracy |
+| ------------------------------------------------------------- | ---------------- | -------- |
+| `lmompelat/xlm-r-base-martinican-pos-tagger`                  | XLM‑RoBERTa       | 85%      |
+| `lmompelat/mbert-martinican-pos-tagger`                       | mBERT             | 91%      |
+| `lmompelat/creoleval-martinican-pos-tagger`                   | XLM‑RoBERTa + finetune | 92% |
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/lmompela/Martinican_Creole_POS_tagger.git
-   cd pos_tagger
-   ```
-2. Create a virtual environment and install dependencies:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
-3. (Optional) Install as a package:
-   ```bash
-   pip install -e .
-   ```
-   This makes `pos_tagger` importable in Python and exposes CLI tools if configured in `setup.py`.
+Clone and install dependencies:
+```bash
+git clone https://github.com/lmompela/Martinican_Creole_POS_tagger.git
+cd Martinican_Creole_POS_tagger
+python3 -m venv .venv           # or your preferred venv tool
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+# Optional: editable install
+pip install -e .[torch]
+```
+
+## Pre-trained Models
+
+You can load any of the listed models directly from the Hugging Face Hub:
+
+```python
+from transformers import pipeline
+
+taggers = {
+    "xlm-r": "lmompelat/xlm-r-base-martinican-pos-tagger",
+    "mbert": "lmompelat/mbert-martinican-pos-tagger",
+    "creoleval": "lmompelat/creoleval-martinican-pos-tagger",
+}
+
+tagger = pipeline(
+    "token-classification", 
+    model=taggers["creoleval"], 
+    tokenizer=taggers["creoleval"]
+)
+
+text = "Mwen ka alé an lékol pou estudiar Kréyol."
+predictions = tagger(text)
+print(predictions)
+```
 
 ## CLI Usage
 
-### 1. Train a POS Tagger
+### 1. Training
 
 ```bash
 python scripts/train.py \
   --input_dir data/splits/mydataset \
   --model_dir models/transformer \
-  --experiment_name creole_run \
+  --experiment_name my_experiment \
   --transformer_model_name xlm-roberta-base \
   --transformer_epochs 5 \
-  --transformer_batch_size 8 \
-  --save_strategy epoch \
-  --save_epoch_interval 2
+  --transformer_batch_size 8
 ```
 
-- **`--input_dir`**: directory containing `train.conllu` and `dev.conllu`.  
-- **`--model_dir`**: base path to save checkpoints.  
-- **`--experiment_name`**: subfolder name under `model_dir`.  
-- Other args configure model, epochs, batch size, and checkpoint strategy.
-
-### 2. Predict and Evaluate
+### 2. Prediction
 
 ```bash
 python scripts/predict.py \
   --input_conllu data/splits/mydataset/test.conllu \
-  --model_dir models/transformer/creole_run \
+  --model_dir lmompelat/creoleval-martinican-pos-tagger \
   --output_conllu outputs/predicted.conllu \
   --eval_out outputs/evaluation_report.txt
 ```
 
-- Writes predicted CoNLL-U file and simple accuracy/classification report.
-
-### 3. Comprehensive Error Analysis
+### 3. Error Analysis
 
 ```bash
 python scripts/analyze.py \
@@ -99,15 +82,17 @@ python scripts/analyze.py \
   --ngram_n 2 --top_n 10 --min_freq 5
 ```
 
-- Exports classification report, confusion matrix, LOESS plots, homonym & OOV error JSON, n-gram/collocation JSON, and KWIC CSV.
+## Project Structure (abbreviated)
 
-## Development & Contribution
-
-- Follow modular design: add new analyses or data loaders in `pos_tagger/` submodules.  
-- Update `requirements.txt` for new dependencies.  
-- Create unit tests under a `tests/` directory and integrate with CI.  
+```
+pos_tagger/    # core modules
+scripts/       # CLI entry points
+models/        # local checkpoint folder (ignored by git)
+data/          # version-controlled datasets
+outputs/       # evaluation outputs
+```
 
 ## License
 
-[MIT License](./LICENSE)
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
 
