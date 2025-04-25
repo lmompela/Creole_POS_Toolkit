@@ -42,6 +42,8 @@ def main():
                         help="Top N items for n-gram/collocation")
     parser.add_argument("--min_freq", type=int, default=3,
                         help="Min frequency for collocation filter")
+    parser.add_argument("--model_name", default="",
+                        help="Name of the model used for the experiment")
     args = parser.parse_args()
 
     os.makedirs(args.results_dir, exist_ok=True)
@@ -62,7 +64,7 @@ def main():
 
     # Confusion matrix
     logging.info("Plotting confusion matrix...")
-    plot_confusion_matrix(gold_tags, pred_tags, args.results_dir)
+    plot_confusion_matrix(gold_tags, pred_tags, args.results_dir, args.model_name)
 
     # LOESS analysis
     logging.info("Performing LOESS F1 vs. support analysis...")

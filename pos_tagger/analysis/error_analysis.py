@@ -35,17 +35,21 @@ def export_classification_report(gold_tags, pred_tags, results_dir):
 
 # --- Confusion Matrix ---
 
-def plot_confusion_matrix(gold_tags, pred_tags, results_dir):
+def plot_confusion_matrix(gold_tags, pred_tags, results_dir, model_name):
     os.makedirs(results_dir, exist_ok=True)
+    if len(model_name)>1:
+        model_name = " ("+str(model_name)+")"
     labels = sorted(set(gold_tags) | set(pred_tags))
     cm = confusion_matrix(gold_tags, pred_tags, labels=labels)
-    plt.figure(figsize=(12, 10))
+    plt.figure(figsize=(10, 8))
     plt.imshow(cm, interpolation='nearest', cmap='Blues')
-    plt.title("Confusion Matrix for POS Tagging")
+    plt.title("Confusion Matrix for POS Tagging" + model_name)
     plt.colorbar()
     tick_marks = range(len(labels))
     plt.xticks(tick_marks, labels, rotation=45)
     plt.yticks(tick_marks, labels)
+    plt.xlabel('Predicted POS tag')
+    plt.ylabel('GOLD POS tag')
     for i in range(len(labels)):
         for j in range(len(labels)):
             plt.text(j, i, cm[i, j], ha="center", va="center",
@@ -61,32 +65,66 @@ def plot_confusion_matrix(gold_tags, pred_tags, results_dir):
 
 # --- F1 vs. Support (LOESS) ---
 
-def analyze_f1_vs_support(gold_tags, pred_tags, target_f1=0.80, results_dir='.'):  
+def analyze_f1_vs_support(gold_tags, pred_tags, target_f1=0.90, results_dir='.'):  
+
     os.makedirs(results_dir, exist_ok=True)
-    labels = sorted(set(gold_tags) | set(pred_tags))
-    report = classification_report(gold_tags, pred_tags, labels=labels, output_dict=True, zero_division=0)
+    labels   = sorted(set(gold_tags) | set(pred_tags))
+    report   = classification_report(
+                   gold_tags, pred_tags,
+                   labels=labels,
+                   output_dict=True,
+                   zero_division=0
+               )
     supports = [gold_tags.count(lbl) for lbl in labels]
-    f1s = [report[lbl]['f1-score'] for lbl in labels]
-    loess = sm.nonparametric.lowess(f1s, supports, frac=0.3)
-    threshold = next((sup for sup, f1 in loess if f1 >= target_f1), None)
-    plt.figure(figsize=(10,6))
+    f1s      = [report[lbl]['f1-score'] for lbl in labels]
+
+    # LOESS smoothing
+    loess_arr = sm.nonparametric.lowess(f1s, supports, frac=0.8)
+    loess = sorted(loess_arr, key=lambda x: x[0])  # [(sup1,f1_1), (sup2,f1_2), ...]
+
+    # --- find contiguous runs where f1 >= target_f1 ---
+    runs = []
+    current_run = []
+    for sup, f1 in loess:
+        if f1 >= target_f1:
+            current_run.append((sup, f1))
+        else:
+            if current_run:
+                runs.append(current_run)
+                current_run = []
+    if current_run:
+        runs.append(current_run)
+
+    # pick the longest run
+    if runs:
+        best_run = max(runs, key=len)
+        threshold = best_run[0][0]  # first support in the longest above-threshold run
+    else:
+        threshold = None
+
+    # --- plotting ---
+    plt.figure(figsize=(8,5))
     plt.scatter(supports, f1s, alpha=0.6)
-    plt.plot(loess[:,0], loess[:,1], '--')
+    xs, ys = zip(*loess)
+    plt.plot(xs, ys, '--')
     if threshold is not None:
         plt.axvline(threshold, linestyle=':')
     plt.xlabel('Support (Frequency)')
     plt.ylabel('F1 Score')
-    plt.title('LOESS: F1 vs. Support')
+    plt.title(f'LOESS: F1 vs. Support (threshold ≥ {target_f1})')
     out_png = os.path.join(results_dir, 'f1_vs_support.png')
     plt.savefig(out_png, dpi=300)
     plt.close()
+
+    # --- write out values + threshold ---
     loess_txt = os.path.join(results_dir, 'loess_results.txt')
     with open(loess_txt, 'w') as f:
         f.write('Support\tLOESS_F1\n')
         for sup, f1 in loess:
             f.write(f"{sup:.0f}\t{f1:.4f}\n")
         if threshold is not None:
-            f.write(f"Threshold for F1>={target_f1}: {threshold:.0f}\n")
+            f.write(f"\nThreshold for F1>={target_f1}: {threshold:.0f}\n")
+
     logging.info(f"LOESS analysis saved: {out_png}, {loess_txt}")
     return loess, threshold
 
@@ -158,7 +196,8 @@ def compute_oov_error_rate(gold_sents, pred_sents, train_sents):
                     total_oov += 1
                     if gt[3] != pt[3]:
                         error_count += 1
-                        details[word][(gt[3], pt[3])] += 1
+                        pair_key = f"{gt[3]}→{pt[3]}"
+                        details[word][pair_key] += 1
     rate = error_count / total_oov if total_oov > 0 else 0.0
     return rate, error_count, total_oov, dict(details)
 
