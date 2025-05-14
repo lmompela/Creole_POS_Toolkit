@@ -41,7 +41,7 @@ tagger = pipeline(
     tokenizer=taggers["creoleval"]
 )
 
-text = "Mwen ka alé an lékol pou estudiar Kréyol."
+text = "Mwen ka alé an lékol pou aprann Kréyol."
 predictions = tagger(text)
 print(predictions)
 ```
